@@ -67,26 +67,26 @@ class CohortQueryBuilder:
         event_sql = ""
 
         if event["event_type"] == "condition_occurrence":
+            event_table = 'ranked_events'
+        else:
+            event_table = 'ranked_visits'
+        if event["event_type"] == "condition_occurrence" or event["event_type"] == "visit_occurrence":
             if "event_instance" in event and event["event_instance"] is not None:
                 event_sql = (
-                    f"SELECT person_id, event_date FROM ranked_events WHERE condition_concept_id = {event['event_concept_id']} "
+                    f"SELECT person_id, event_date FROM {event_table} "
+                    f"WHERE event_id = {event['event_concept_id']} "
                     f"AND event_instance >= {event['event_instance']}"
                 )
             else:
-                event_sql = (
-                    f"SELECT person_id, event_date FROM ranked_events WHERE condition_concept_id = {event['event_concept_id']}"
-                )
-
-        elif event["event_type"] == "visit_occurrence":
-            if "event_instance" in event and event["event_instance"] is not None:
-                event_sql = (
-                    f"SELECT person_id, event_date FROM ranked_visits WHERE visit_concept_id = {event['event_concept_id']} "
-                    f"AND event_instance >= {event['event_instance']}"
-                )
-            else:
-                event_sql = (
-                    f"SELECT person_id, event_date FROM ranked_visits WHERE visit_concept_id = {event['event_concept_id']}"
-                )
+                if 'event_concept_id' in event and event['event_concept_id'] is not None:
+                    event_sql = (
+                        f"SELECT person_id, event_date FROM {event_table} "
+                        f"WHERE event_id = {event['event_concept_id']}"
+                    )
+                else:
+                    event_sql = (
+                        f"SELECT person_id, event_date FROM {event_table}"
+                    )
 
         return event_sql
 
@@ -120,6 +120,7 @@ class CohortQueryBuilder:
                 if queries[0].startswith('SELECT person_id, event_date'):
                     queries[0] = queries[0].replace('SELECT person_id, event_date', 'SELECT person_id', 1)
                 table_name = event_group["events"][0]['event_type']
+                table_name = 'ranked_events' if table_name == 'condition_occurrence' else 'ranked_visits'
                 return f"SELECT person_id FROM {table_name} WHERE person_id NOT IN ({queries[0]})"
             elif event_group["operator"] == "BEFORE":
                 if len(queries) == 1:
@@ -144,12 +145,13 @@ class CohortQueryBuilder:
                     for i in range(len(queries)):
                         if (queries[i].startswith('SELECT person_id')
                                 and (not queries[i].startswith('SELECT person_id, event_date'))):
-                            queries[i] = queries[i].replace('SELECT person_id', 'SELECT person_id, event_date', 1)
+                            queries[i] = queries[i].replace('SELECT person_id',
+                                                            'SELECT person_id, event_date', 1)
 
                     event_group = TemporalEventGroup(**event_group)
                     interval_sql = event_group.get_interval_sql()
                     return f"""
-                            SELECT person_id  
+                            SELECT person_id
                             FROM ({queries[0]}) e1 
                             WHERE EXISTS (
                                 SELECT 1 FROM ({queries[1]}) e2
@@ -175,6 +177,11 @@ class CohortQueryBuilder:
         for event_group in event_groups:
             group_sql = self.render_event_group(event_group)
             if group_sql:
-                filters.append(f"AND {alias}.person_id IN ({group_sql})")
+                filters.append(f"""
+                    AND EXISTS (
+                        SELECT 1 FROM ({group_sql}) ranked 
+                        WHERE {alias}.person_id = ranked.person_id                         
+                    )
+                """)
 
         return " ".join(filters) if filters else ""
