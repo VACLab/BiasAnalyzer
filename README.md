@@ -15,4 +15,5 @@ The BiasAnalyzer project is composed of multiple open source components. This ma
 | `BiasAnalyzerVis`    | [VACLab/BiasAnalyzerVis](https://github.com/VACLab/BiasAnalyzerVis) |
 | `BiasAnalyzerWidget` | [VACLab/BiasAnalyzerWidget](https://github.com/VACLab/BiasAnalyzerWidget) |
 | `BiasAnalyzerApp`    | [VACLab/BiasAnalyzerApp](https://github.com/VACLab/BiasAnalyzerApp) |
+| `BiasAnalyzerCohortDefinitionBuilder`    | [VACLab/BiasAnalyzerCohortDefinitionBuilder](https://github.com/VACLab/BiasAnalyzerCohortDefinitionBuilder) |
 
